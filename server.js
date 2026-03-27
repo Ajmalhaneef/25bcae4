@@ -23,15 +23,21 @@ if (!frontendDir) {
 app.use(express.static(frontendDir));
 
 // DB URL check
-if (!process.env.DATABASE_URL) {
+const connectionString =
+  process.env.DATABASE_URL ||
+  process.env.RENDER_DATABASE_URL ||
+  null;
+
+if (!connectionString) {
   console.error("DATABASE_URL missing. Set it in Render environment variables.");
-  process.exit(1);
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
-});
+const pool = connectionString
+  ? new Pool({
+      connectionString,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+    })
+  : null;
 
 async function ensureTables() {
   try {
@@ -55,6 +61,13 @@ app.get("/api/health", (req, res) => {
 });
 
 app.post("/contact", async (req, res) => {
+  if (!pool) {
+    return res.status(500).json({
+      error: "Database is not configured",
+      details: "DATABASE_URL is missing in environment variables"
+    });
+  }
+
   const { name, email, message } = req.body;
   if (!name || !email || !message) {
     return res.status(400).json({ error: "All fields are required" });
@@ -65,10 +78,10 @@ app.post("/contact", async (req, res) => {
       "INSERT INTO contacts (name, email, message) VALUES ($1, $2, $3)",
       [name, email, message]
     );
-    res.json({ message: "Message received successfully!" });
+    return res.json({ message: "Message received successfully!" });
   } catch (err) {
     console.error("Contact insert error:", err);
-    res.status(500).json({ error: "Error saving message", details: err.message || String(err) });
+    return res.status(500).json({ error: "Error saving message", details: err.message });
   }
 });
 
