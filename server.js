@@ -1,6 +1,7 @@
 const express = require("express");
 const { Pool } = require("pg");
 const cors = require("cors");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
@@ -8,7 +9,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static("../frontend"));
+app.use(express.static(path.join(__dirname, "./frontend.")));
 
 // PostgreSQL Pool
 const pool = new Pool({
@@ -16,8 +17,8 @@ const pool = new Pool({
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
 });
 
-// Health Check
-app.get("/", (req, res) => {
+// Health Check - Moved to /api/health to avoid interfering with static serving
+app.get("/api/health", (req, res) => {
     res.send("Server is running!");
 });
 
