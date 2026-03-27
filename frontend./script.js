@@ -20,28 +20,29 @@ sections.forEach(sec => observer.observe(sec));
 // ============================
 const form = document.getElementById("contactForm");
 
-form.addEventListener("submit", async function(e){
-    e.preventDefault();
+form.addEventListener("submit", async function (e) {
+  e.preventDefault();
 
-    const name = document.getElementById("name").value;
-    const email = document.getElementById("email").value;
-    const message = document.getElementById("message").value;
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const message = document.getElementById("message").value;
 
-    try {
-        const response = await fetch("/contact", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ name, email, message })
-        });
+  try {
+    const response = await fetch("/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, message })
+    });
 
-        const data = await response.text();
-
-        alert(data); // Show server response
-        form.reset(); // Clear the form
-    } catch (err) {
-        console.error("Error submitting form:", err);
-        alert("There was an error sending your message. Please try again.");
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to send message");
     }
+
+    alert(data.message || "Message sent!");
+    form.reset();
+  } catch (err) {
+    console.error("Error submitting form:", err);
+    alert("There was an error sending your message. " + err.message);
+  }
 });
