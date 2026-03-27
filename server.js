@@ -11,22 +11,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const frontendPaths = [
+const frontendCandidates = [
   path.join(__dirname, "frontend"),
-  path.join(__dirname, "frontend.")
+  path.join(__dirname, "frontend."),
+  path.join(__dirname, "..", "frontend"),
+  path.join(__dirname, "..", "frontend."),
+  path.join(__dirname)
 ];
-const frontendDir = frontendPaths.find(fs.existsSync);
-if (!frontendDir) {
-  console.error("Frontend folder not found:", frontendPaths);
-  process.exit(1);
-}
-app.use(express.static(frontendDir));
+const frontendDir = frontendCandidates.find(dir => fs.existsSync(path.join(dir, "index.html")));
 
-// DB URL check
-const connectionString =
-  process.env.DATABASE_URL ||
-  process.env.RENDER_DATABASE_URL ||
-  null;
+if (!frontendDir) {
+  console.error("Frontend not found (tried):", frontendCandidates);
+} else {
+  app.use(express.static(frontendDir));
+}
+
+const connectionString = process.env.DATABASE_URL || process.env.RENDER_DATABASE_URL || null;
 
 if (!connectionString) {
   console.error("DATABASE_URL missing. Set it in Render environment variables.");
@@ -40,6 +40,7 @@ const pool = connectionString
   : null;
 
 async function ensureTables() {
+  if (!pool) return;
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS contacts (
@@ -63,8 +64,8 @@ app.get("/api/health", (req, res) => {
 app.post("/contact", async (req, res) => {
   if (!pool) {
     return res.status(500).json({
-      error: "Database is not configured",
-      details: "DATABASE_URL is missing in environment variables"
+      error: "Database not configured",
+      details: "DATABASE_URL is missing"
     });
   }
 
@@ -78,14 +79,17 @@ app.post("/contact", async (req, res) => {
       "INSERT INTO contacts (name, email, message) VALUES ($1, $2, $3)",
       [name, email, message]
     );
-    return res.json({ message: "Message received successfully!" });
+    res.json({ message: "Message received successfully!" });
   } catch (err) {
     console.error("Contact insert error:", err);
-    return res.status(500).json({ error: "Error saving message", details: err.message });
+    res.status(500).json({ error: "Error saving message", details: err.message });
   }
 });
 
 app.get("*", (req, res) => {
+  if (!frontendDir) {
+    return res.status(500).send("Frontend files not found");
+  }
   res.sendFile(path.join(frontendDir, "index.html"));
 });
 
